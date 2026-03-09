@@ -12,6 +12,10 @@ dist
 dist-ssr
 *.local
 
+# Project-specific ignores
+.claude/
+vee-growth-os/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
