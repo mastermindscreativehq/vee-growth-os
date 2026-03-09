@@ -2657,10 +2657,125 @@ const NAV_ITEMS = [
   { id: "report", label: "Report", icon: "📊", color: T.sky },
 ];
 
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  PROFILE MENU — Top-right dropdown with logout
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function ProfileMenu({ user, onSignOut }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef(null);
+
+  useEffect(() => {
+    function handleOutside(e) {
+      if (ref.current && !ref.current.contains(e.target)) setOpen(false);
+    }
+    if (open) document.addEventListener("mousedown", handleOutside);
+    return () => document.removeEventListener("mousedown", handleOutside);
+  }, [open]);
+
+  const displayName = user?.user_metadata?.full_name || user?.email?.split("@")[0] || "Vera";
+
+  return (
+    <div ref={ref} style={{ position: "relative" }}>
+      <button
+        onClick={() => setOpen(!open)}
+        style={{
+          background: "#111118", border: `1px solid ${T.border}`, color: T.text,
+          padding: "7px 11px", borderRadius: T.radius.sm, cursor: "pointer",
+          display: "flex", alignItems: "center", gap: 6,
+          fontSize: 11, fontFamily: T.font.body, fontWeight: 600,
+        }}
+      >
+        <span>👤</span>
+        <span style={{ color: T.accent }}>{displayName}</span>
+        <span style={{ fontSize: 8, color: T.textMute }}>{open ? "▲" : "▼"}</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: "absolute", top: "calc(100% + 6px)", right: 0,
+          background: "#111118", border: `1px solid ${T.border}`,
+          borderRadius: T.radius.md, boxShadow: "0 8px 32px rgba(0,0,0,0.7)",
+          minWidth: 170, zIndex: 200, overflow: "hidden",
+        }}>
+          <div style={{ padding: "10px 14px 8px", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ fontSize: 9, color: T.textMute, fontFamily: T.font.body, letterSpacing: 1 }}>SIGNED IN AS</div>
+            <div style={{ fontSize: 11, color: T.text, fontFamily: T.font.body, marginTop: 3, fontWeight: 600 }}>{user?.email}</div>
+          </div>
+          <button
+            onClick={onSignOut}
+            style={{
+              width: "100%", padding: "10px 14px", background: "none", border: "none",
+              color: T.danger, fontSize: 12, fontFamily: T.font.body, fontWeight: 600,
+              cursor: "pointer", textAlign: "left", display: "flex", alignItems: "center", gap: 8,
+            }}
+          >
+            🚪 Sign Out
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  TODAY'S FOCUS CARD — AI insight at top of dashboard
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+function TodayFocusCard() {
+  const { state } = useStore();
+  const raw = state.aiBriefing;
+  const lines = typeof raw === "string" && raw.trim() ? raw.split("\n") : null;
+  const action = lines ? lines[0] : "Post a transformation reel today.";
+  const reason = lines && lines.length > 1
+    ? lines.slice(1).join(" ")
+    : "Transformation content is currently generating the highest engagement in Abuja fashion audiences.";
+
+  return (
+    <div style={{
+      margin: "14px 16px 0", padding: "14px 16px",
+      borderRadius: T.radius.md, background: "#121218",
+      border: `1px solid ${T.accent}20`,
+      boxShadow: "0 4px 24px rgba(212,165,116,0.07)",
+      position: "relative", zIndex: 2,
+    }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+        <span style={{ fontSize: 14 }}>🎯</span>
+        <span style={{
+          fontSize: 9, letterSpacing: 4, color: T.accent,
+          textTransform: "uppercase", fontWeight: 800, fontFamily: T.font.body,
+        }}>Today's Focus</span>
+      </div>
+      <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div>
+          <div style={{ fontSize: 10, color: T.accent, fontWeight: 700, fontFamily: T.font.body, marginBottom: 3 }}>🎯 Priority Action</div>
+          <div style={{ fontSize: 13, color: T.text, fontFamily: T.font.body, lineHeight: 1.55 }}>{action}</div>
+        </div>
+        <div>
+          <div style={{ fontSize: 10, color: T.mint, fontWeight: 700, fontFamily: T.font.body, marginBottom: 3 }}>📈 Reason</div>
+          <div style={{ fontSize: 12, color: T.textDim, fontFamily: T.font.body, lineHeight: 1.55 }}>{reason}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+//  APP SHELL — Main layout
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
 function AppShell() {
-  const { state, actions } = useStore();
+  const { state, actions, dispatch, user } = useStore();
   const [splash, setSplash] = useState(true);
   const [fadeIn, setFadeIn] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+
+  async function refreshDashboard() {
+    if (refreshing) return;
+    setRefreshing(true);
+    await hydrateStore(dispatch);
+    setRefreshing(false);
+  }
 
   useEffect(() => {
     setTimeout(() => setFadeIn(true), 80);
@@ -2730,12 +2845,31 @@ function AppShell() {
             <div style={{ fontFamily: T.font.display, fontSize: 22, fontWeight: 400, color: T.white, marginTop: 2 }}>Vee Urban Vogue</div>
             <div style={{ fontSize: 10, letterSpacing: 1, color: T.accent, fontWeight: 700, marginTop: 2 }}>Built for Vera Chioma</div>
           </div>
-          <ScoreRing
-            score={PLAYBOOKS[state.currentDay]?.tasks.length ? Math.round(Object.keys(state.completedTasks).filter(k => k.startsWith(state.currentDay) && state.completedTasks[k]).length / PLAYBOOKS[state.currentDay].tasks.length * 100) : 0}
-            size={44} color={pb?.color || T.accent}
-          />
+          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <ScoreRing
+              score={PLAYBOOKS[state.currentDay]?.tasks.length ? Math.round(Object.keys(state.completedTasks).filter(k => k.startsWith(state.currentDay) && state.completedTasks[k]).length / PLAYBOOKS[state.currentDay].tasks.length * 100) : 0}
+              size={44} color={pb?.color || T.accent}
+            />
+            <button
+              onClick={refreshDashboard}
+              title="Refresh Insights"
+              disabled={refreshing}
+              style={{
+                background: "#111118", border: `1px solid ${T.border}`, color: T.text,
+                padding: "8px 10px", borderRadius: T.radius.sm, cursor: refreshing ? "default" : "pointer",
+                fontSize: 15, lineHeight: 1, display: "flex", alignItems: "center",
+                opacity: refreshing ? 0.6 : 1,
+              }}
+            >
+              <span style={{ display: "inline-block", animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>🔄</span>
+            </button>
+            <ProfileMenu user={user} onSignOut={actions.signOut} />
+          </div>
         </div>
       </div>
+
+      {/* Today's Focus Card */}
+      <TodayFocusCard />
 
       {/* ── V4 Dashboard Narrative: Welcome → Situation → Decision ── */}
       <WelcomePanel />
@@ -2769,6 +2903,7 @@ function AppShell() {
 
       <style>{`
         @keyframes slideUp { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
         * { box-sizing: border-box; margin: 0; padding: 0; }
         ::-webkit-scrollbar { display: none; }
         body { background: ${T.bg}; }
