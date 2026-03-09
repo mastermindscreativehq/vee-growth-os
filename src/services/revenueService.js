@@ -1,4 +1,4 @@
-import { supabase } from "../lib/supabaseClient";
+import { supabase } from "../lib/supabaseClient.js";
 
 export const revenueService = {
   async recordRevenue({ client_id = null, amount, source = "direct" }) {
