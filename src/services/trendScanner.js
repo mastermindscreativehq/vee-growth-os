@@ -1,5 +1,5 @@
-import { runActor } from "./apifyClient";
-import { supabase } from "../lib/supabaseClient";
+import { runActor } from "./apifyClient.js";
+import { supabase } from "../lib/supabaseClient.js";
 
 const INSTAGRAM_HASHTAGS = [
   "asoebi",
@@ -17,38 +17,51 @@ const TIKTOK_QUERIES = [
 ];
 
 async function scanInstagram() {
-  const items = await runActor("apify/instagram-hashtag-scraper", {
-    hashtags: INSTAGRAM_HASHTAGS,
-    resultsLimit: 20,
-  });
-
-  return items.map((item) => ({
-    platform: "instagram",
-    hashtag: item.hashtag ?? item.topPostsOnly ?? "",
-    engagement_score: (item.likesCount ?? 0) + (item.commentsCount ?? 0),
-    sample_post: item.caption ?? item.alt ?? "",
-  }));
+  try {
+    const items = await runActor("apify/instagram-hashtag-scraper", {
+      hashtags: INSTAGRAM_HASHTAGS,
+      resultsLimit: 20,
+    });
+    return items.map((item) => ({
+      platform: "instagram",
+      hashtag: item.hashtag ?? item.topPostsOnly ?? "",
+      engagement_score: (item.likesCount ?? 0) + (item.commentsCount ?? 0),
+      sample_post: item.caption ?? item.alt ?? "",
+    }));
+  } catch (err) {
+    console.error("[trendScanner] Instagram scan failed:", err.message);
+    return [];
+  }
 }
 
 async function scanTikTok() {
-  const items = await runActor("clockworks/tiktok-scraper", {
-    searchQueries: TIKTOK_QUERIES,
-    maxItems: 20,
-  });
-
-  return items.map((item) => ({
-    platform: "tiktok",
-    hashtag: item.searchQuery ?? item.text?.split(" ")[0] ?? "",
-    engagement_score: (item.diggCount ?? 0) + (item.commentCount ?? 0),
-    sample_post: item.text ?? item.desc ?? "",
-  }));
+  try {
+    const items = await runActor("clockworks/tiktok-scraper", {
+      searchQueries: TIKTOK_QUERIES,
+      maxItems: 20,
+    });
+    return items.map((item) => ({
+      platform: "tiktok",
+      hashtag: item.searchQuery ?? item.text?.split(" ")[0] ?? "",
+      engagement_score: (item.diggCount ?? 0) + (item.commentCount ?? 0),
+      sample_post: item.text ?? item.desc ?? "",
+    }));
+  } catch (err) {
+    console.error("[trendScanner] TikTok scan failed:", err.message);
+    return [];
+  }
 }
 
 async function storeTrends(signals) {
-  if (!signals.length) return;
+  if (!signals.length) {
+    console.log("[trendScanner] No signals to store");
+    return;
+  }
   const { error } = await supabase.from("trend_signals").insert(signals);
   if (error) {
-    console.error("[trendScanner] Failed to store signals:", error.message);
+    console.error("[trendScanner] Supabase insert failed:", error.message);
+  } else {
+    console.log(`[trendScanner] Inserted ${signals.length} signals into trend_signals`);
   }
 }
 
@@ -58,11 +71,8 @@ export async function scanTrends() {
       scanInstagram(),
       scanTikTok(),
     ]);
-
     const combined = [...instagramSignals, ...tiktokSignals];
     await storeTrends(combined);
-
-    console.log(`[trendScanner] Stored ${combined.length} trend signals`);
     return combined;
   } catch (err) {
     console.error("[trendScanner] scanTrends failed:", err.message);
