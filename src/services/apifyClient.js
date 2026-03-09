@@ -1,8 +1,10 @@
 import { ApifyClient } from "apify-client";
 
-export const apify = new ApifyClient({
-  token: import.meta.env.VITE_APIFY_API_TOKEN,
-});
+// Works in both Vite (browser) and Node.js (Vercel serverless)
+const token =
+  import.meta.env?.VITE_APIFY_API_TOKEN ?? process.env.APIFY_API_TOKEN;
+
+export const apify = new ApifyClient({ token });
 
 export async function runActor(actorId, input = {}) {
   try {
