@@ -2863,6 +2863,17 @@ function AppShell() {
             >
               <span style={{ display: "inline-block", animation: refreshing ? "spin 0.7s linear infinite" : "none" }}>🔄</span>
             </button>
+            <button
+              onClick={actions.signOut}
+              title="Sign Out"
+              style={{
+                background: "#111118", border: `1px solid ${T.border}`, color: T.danger,
+                padding: "7px 11px", borderRadius: T.radius.sm, cursor: "pointer",
+                fontSize: 11, fontFamily: T.font.body, fontWeight: 700, letterSpacing: 0.5,
+              }}
+            >
+              Sign Out
+            </button>
             <ProfileMenu user={user} onSignOut={actions.signOut} />
           </div>
         </div>
